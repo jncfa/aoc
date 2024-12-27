@@ -1,18 +1,32 @@
 #include <algorithm>
 #include <cassert>
 #include <charconv>
+#include <cmath>
+#include <cstdlib>
 #include <format>
 #include <functional>
 #include <iostream>
-#include <string>
 #include <fstream>
+#include <iterator>
 #include <ostream>
 #include <ranges>
+#include <string>
+#include <system_error>
 #include <utility>
 #include <vector>
 #include <numeric>
 #include <execution>
-#include <sstream>
+#include <regex>
+
+template <typename T, typename ...TArgs>
+T str_to(const std::string& str, TArgs&&... args){
+    T result{};
+    auto [ptr, ec] = std::from_chars(str.begin().base(), str.end().base(), result, std::forward<TArgs>(args)...);
+    if (ec != std::errc()){
+        throw std::system_error(std::make_error_code(ec));
+    }
+    return result;
+} 
 
 template <typename T, typename TIter, typename ...TArgs>
 T str_to(TIter iter_begin, TIter iter_end, TArgs&&... args){
@@ -40,18 +54,51 @@ void print_vec(const std::vector<T>& vec, Functor to_str) {
     print("[{}]", final);
 }
 
-auto split_str(std::string_view str, std::string_view substr){    
-    auto splits = str | std::ranges::views::split( substr);
+template<typename T>
+void print_vec(const std::vector<T>& vec){
+    return print_vec(vec,[](const T& val){ return std::to_string(val); });
+}
 
-    std::vector<int> result;
+auto get_mul_count(const std::string& str){
+    static const std::regex mul_values(R"(mul\((\d{1,3}),(\d{1,3})\)|don't\(\)|do\(\))", std::regex_constants::optimize);
 
-    for(const auto& k: splits){
-        result.push_back(str_to<int>(k.begin(), k.end()));
+    unsigned long result = 0;
+
+    bool is_enabled = true;
+
+    for(auto it = std::sregex_iterator(str.begin(), str.end(), mul_values); it != std::sregex_iterator(); ++it){
+        if (it->str().compare("do()") == 0){
+            if (!is_enabled){
+                print("mul is disabled, enabling... {}", it->str());
+                is_enabled = true;
+            }
+            else {
+                 print("mul is still enabled... {}", it->str());           
+            }
+        }
+        else if (it->str().compare("don't()") == 0){
+            if (is_enabled){
+                print("mul is enabled, disabling... {}", it->str());
+                is_enabled = false;
+            }
+            else{
+                print("mul is still disabled.. {}", it->str());
+            }
+        }
+        else{
+            if (!is_enabled){
+                print("mul is disabled, skipping this: {}", it->str());
+                continue;
+            }
+            // get regex values
+            auto base = it->str(), val1 = it->str(1), val2 = it->str(2);
+            print("got value: {}, calc {} * {}", base, val1, val2);
+            result += str_to<unsigned long>(val1) * str_to<unsigned long>(val2);
+        }
     }
 
     return result;
 }
-
 
 class Line : public std::string {};
 
@@ -59,7 +106,6 @@ std::istream &operator>>(std::istream &is, Line &l)
 {
     std::getline(is, l);
     return is;
-
 }
 
 struct LineWrapper {
@@ -80,10 +126,6 @@ auto get_lines(std::ifstream& stream){
     return LineWrapper(stream);
 }
 
-template<typename T>
-void print_vec(const std::vector<T>& vec){
-    return print_vec(vec,[](const T& val){ return std::to_string(val); });
-}
 int main(int argc, char** argv){
 	std::cout << "Hello World" << std::endl;
 
@@ -91,32 +133,10 @@ int main(int argc, char** argv){
     myfile.open("input");
 
     std::string line;
-    std::vector<int> l1;
-    std::vector<int> l2;
-
+    
     if (myfile.is_open()) {
-        for (auto& k: get_lines(myfile)){
-            print("{}", k.c_str());
-            auto vec = split_str(line.c_str(), "   ");
-            print_vec(vec);
-            assert(vec.size() == 2);
-            l1.push_back(vec[0]);
-            l2.push_back(vec[1]);            
-        }
-
+        print("got result {}", get_mul_count(read_file(myfile)));
         myfile.close();
-
-        std::sort(l1.begin(), l1.end());
-        std::sort(l2.begin(), l2.end());
-        print_vec(l1, [](int a){return std::to_string(a); });
-        print("l1 has {} and l2 has {}", l1.size(), l2.size());
-
-        const auto res = std::transform_reduce(l1.begin(), l1.end(), l2.begin(), 
-            0,
-            std::plus<>(), // sum everything
-            [](const auto& v1,const auto& v2){return abs(v1 - v2);}); // transform: calc value diff between both vecs
-
-        print("result: {}", res);
     }
     
 	return 0;

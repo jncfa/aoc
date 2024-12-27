@@ -5,6 +5,10 @@ set(CXX_STANDARD_REQUIRED ON)
 
 #add_compile_options(-g3 -O0)
 #add_link_options(-fsanitize=address)
+set(WARNINGS_AS_ERRORS ON)
+include(cmake/cpp_warnings.cmake)
 
-add_executable(day2_p1 p1.cpp)
-add_executable(day2_p2 p2.cpp)
+add_executable(day9_p1 p1.cpp)
+add_executable(day9_p2 p2.cpp)
+
+target_compile_options(day9_p2 PRIVATE ${PROJECT_WARNING_FLAGS})

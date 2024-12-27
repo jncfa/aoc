@@ -3,19 +3,18 @@
 #include <charconv>
 #include <cmath>
 #include <cstdlib>
-#include <execution>
 #include <format>
-#include <fstream>
 #include <functional>
 #include <iostream>
+#include <fstream>
 #include <iterator>
-#include <numeric>
 #include <ostream>
 #include <ranges>
-#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
+#include <numeric>
+#include <execution>
 
 template <typename T, typename TIter, typename ...TArgs>
 T str_to(TIter iter_begin, TIter iter_end, TArgs&&... args){
@@ -48,16 +47,23 @@ void print_vec(const std::vector<T>& vec){
     return print_vec(vec,[](const T& val){ return std::to_string(val); });
 }
 
+
 auto split_str(std::string_view str, std::string_view substr){    
-    auto splits = str | std::ranges::views::split( substr);
 
-    std::vector<int> result;
+    auto r = str 
+        | std::ranges::views::split(substr)
+        | std::ranges::views::transform([](auto&& rng) {
+            return str_to<int>(rng.begin(), rng.end());
+        });
 
-    for(const auto& k: splits){
-        result.push_back(str_to<int>(k.begin(), k.end()));
+    std::vector<std::ranges::range_value_t<decltype(r)>> v;
+
+    if constexpr(std::ranges::sized_range<decltype(r)>) {
+        v.reserve(std::ranges::size(r));
     }
 
-    return result;
+    std::ranges::copy(r, std::back_inserter(v));
+    return v;
 }
 
 template <typename T>
@@ -112,26 +118,6 @@ bool is_safe(const auto& levels, bool found_bad_level_already = false){
     return true;
 }
 
-class Line : public std::string {};
-
-std::istream &operator>>(std::istream &is, Line &l) {
-  std::getline(is, l);
-  return is;
-}
-
-struct LineWrapper {
-  std::reference_wrapper<std::ifstream> ref;
-  LineWrapper(std::ifstream &stream_) : ref(stream_){};
-  auto begin() { return std::istream_iterator<Line>(ref.get()); }
-  auto end() { return std::istream_iterator<Line>(); }
-};
-
-std::string read_file(std::ifstream &stream) {
-  std::ostringstream sstr;
-  sstr << stream.rdbuf();
-  return sstr.str();
-}
-
 int main(int argc, char** argv){
 	std::cout << "Hello World" << std::endl;
 
@@ -141,22 +127,20 @@ int main(int argc, char** argv){
     std::string line;
     
     unsigned int safe_report = 0;
-    unsigned int line_number = 0;
 
     if (myfile.is_open()) {
         while (std::getline(myfile, line)) {
-          ++line_number;
-          auto levels = split_str(line, " ");
-          if (is_safe(levels)) {
-            print("{}", line_number);
-            ++safe_report;
-          }
+            auto levels = split_str(line, " ");
+            if (is_safe(levels)){
+                ++safe_report;
+            }
         }
 
         myfile.close();
 
         print("result: {}", safe_report);
     }
+    
     
 	return 0;
 }

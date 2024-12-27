@@ -6,5 +6,5 @@ set(CXX_STANDARD_REQUIRED ON)
 #add_compile_options(-g3 -O0)
 #add_link_options(-fsanitize=address)
 
-add_executable(day2_p1 p1.cpp)
-add_executable(day2_p2 p2.cpp)
+add_executable(day4_p1 p1.cpp)
+add_executable(day4_p2 p2.cpp)
